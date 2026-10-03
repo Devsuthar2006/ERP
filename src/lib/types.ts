@@ -6,7 +6,7 @@ export type UserRole = 'owner' | 'subadmin' | 'thekedar';
 
 export type ProjectStatus = 'On Track' | 'Attention' | 'Delayed' | 'Completed';
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Delayed';
-export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Critical';
+export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Critical' | 'Urgent';
 export type MaterialRequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Ordered' | 'Partially Delivered' | 'Delivered';
 export type IssuePriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IssueStatus = 'Open' | 'In Review' | 'Assigned' | 'Resolved' | 'Closed';
@@ -26,6 +26,13 @@ export interface User {
   avatar?: string;
   assignedSiteIds: string[];
   assignedProjectIds: string[];
+  status?: 'Active' | 'Inactive';
+  agencyName?: string;
+  trade?: string;
+  workerCount?: number;
+  rating?: number;
+  gstNumber?: string;
+  panNumber?: string;
   createdAt: string;
 }
 
@@ -46,6 +53,12 @@ export interface Project {
   siteId: string;
   workerCount: number;
   description: string;
+  budget?: number;
+  spentCost?: number;
+  materialCost?: number;
+  labourCost?: number;
+  billedAmount?: number;
+  receivedAmount?: number;
   createdAt: string;
 }
 
@@ -231,6 +244,136 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+// ── PAYROLL & PAYMENT GATEWAY TYPES ──
+export interface StaffEmployee {
+  id: string;
+  empCode: string;
+  name: string;
+  email: string;
+  phone: string;
+  designation: string;
+  department: 'Design & Architecture' | 'Site Operations' | 'Project Management' | 'Procurement' | 'Finance & Accounts' | 'Executive';
+  joiningDate: string;
+  monthlySalary: number;
+  bankAccount: string;
+  bankName: string;
+  ifsc: string;
+  upiId: string;
+  panNumber: string;
+  status: 'Active' | 'On Leave';
+}
+
+export interface PayrollRecord {
+  id: string;
+  batchNumber: string;
+  cycle: string; // e.g. "September 2026", "Week 39 - Sep 2026"
+  type: 'Staff Salary' | 'Labour Wages' | 'Contractor Milestone';
+  recipientType: 'staff' | 'worker' | 'contractor';
+  recipientId: string;
+  recipientName: string;
+  designationOrTrade: string;
+  siteName?: string;
+  bankName: string;
+  bankAccount: string;
+  ifsc: string;
+  upiId?: string;
+  paymentRail: 'Instant UPI' | 'IMPS Direct' | 'NEFT Batch';
+  
+  // Calculations
+  daysPresent?: number;
+  daysInMonth?: number;
+  baseAmount: number;
+  overtimeAmount: number;
+  incentiveBonus: number;
+  grossAmount: number;
+  pfDeduction: number;
+  tdsDeduction: number;
+  advanceDeduction: number;
+  totalDeductions: number;
+  netPayout: number;
+  
+  // Gateway metadata
+  status: 'Pending' | 'Processing' | 'Disbursed' | 'Failed';
+  gatewayProvider: 'RazorpayX Enterprise' | 'Cashfree Payouts' | 'ICICI Corporate Direct';
+  utrNumber?: string;
+  gatewayFee: number;
+  disbursedAt?: string;
+  createdAt: string;
+}
+
+export interface PaymentGatewayConfig {
+  provider: 'RazorpayX Enterprise' | 'Cashfree Payouts' | 'ICICI Corporate Direct';
+  accountNumber: string;
+  accountHolder: string;
+  balance: number;
+  escrowBalance: number;
+  dailyLimit: number;
+  usedToday: number;
+  isLive: boolean;
+  autoRetry: boolean;
+  webhookUrl: string;
+  webhookSecret: string;
+}
+
+export interface ClientPaymentLink {
+  id: string;
+  linkNumber: string;
+  clientName: string;
+  clientPhone: string;
+  projectName: string;
+  milestoneDescription: string;
+  amount: number;
+  status: 'Paid' | 'Issued' | 'Expired';
+  paymentMethod?: 'UPI' | 'NetBanking' | 'Corporate Card';
+  paidAt?: string;
+  utrNumber?: string;
+  createdAt: string;
+  expiresAt: string;
+  shortUrl: string;
+}
+
+export interface MakerCheckerApproval {
+  id: string;
+  batchId: string;
+  title: string;
+  type: 'Staff Salary Batch' | 'Labour Wage Run' | 'Contractor Settlement' | 'Single Payout';
+  totalAmount: number;
+  beneficiaryCount: number;
+  makerName: string;
+  makerRole: string;
+  initiatedAt: string;
+  status: 'Pending Checker Signoff' | 'Approved & Executed' | 'Rejected';
+  checkerName?: string;
+  checkerRole?: string;
+  approvedAt?: string;
+  notes?: string;
+  riskScore: 'Low' | 'Medium' | 'High';
+}
+
+export interface StatutoryChallan {
+  id: string;
+  challanNumber: string;
+  section: 'TDS 194C (Contractors)' | 'TDS 192 (Salaries)' | 'EPFO (Provident Fund)' | 'ESIC (Insurance)';
+  period: string; // e.g., "September 2026"
+  totalTaxAmount: number;
+  deducteeCount: number;
+  status: 'Deposited to Treasury' | 'Ready for Direct Debit' | 'Draft';
+  bsrCode?: string;
+  challanDate?: string;
+  ackNumber?: string;
+}
+
+export interface VirtualEscrowPool {
+  id: string;
+  name: string;
+  accountNumber: string;
+  poolType: 'Operating Payouts' | 'Labour Wage Escrow' | 'Contractor Retention (5%)' | 'Statutory Tax Reserve';
+  balance: number;
+  allocatedAmount: number;
+  autoSweepEnabled: boolean;
+  minThreshold: number;
+}
+
 // Store type
 export interface AppState {
   users: User[];
@@ -247,4 +390,12 @@ export interface AppState {
   sitePhotos: SitePhoto[];
   notifications: Notification[];
   auditLog: AuditEntry[];
+  staffEmployees: StaffEmployee[];
+  payrollRecords: PayrollRecord[];
+  gatewayConfig: PaymentGatewayConfig;
+  clientPaymentLinks?: ClientPaymentLink[];
+  makerCheckerApprovals?: MakerCheckerApproval[];
+  statutoryChallans?: StatutoryChallan[];
+  escrowPools?: VirtualEscrowPool[];
 }
+
