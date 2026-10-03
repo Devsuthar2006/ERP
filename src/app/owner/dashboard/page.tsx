@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore, genId } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/toast';
@@ -8,16 +8,208 @@ import {
   FolderKanban, MapPin, Users, Package, AlertTriangle, Clock,
   TrendingUp, Camera, ArrowRight, AlertCircle, CheckCircle2, Timer,
   IndianRupee, Wallet, Receipt, DollarSign, Calendar, Filter,
-  Check, X, HardHat, Eye, Wrench, ShieldAlert, ArrowUpRight, ArrowDownRight,
-  Sparkles, RefreshCw, ChevronRight, Activity, Search
+  Check, X, HardHat, Eye, EyeOff, Wrench, ShieldAlert, ArrowUpRight, ArrowDownRight,
+  Sparkles, RefreshCw, ChevronRight, Activity, Search,
+  Sliders, Settings, LayoutGrid, RotateCcw, Plus, Layers, CreditCard
 } from 'lucide-react';
 import { getStatusBg, getProgressColor, formatCurrency, timeAgo } from '@/lib/utils';
 import { Project, MaterialRequest, Issue } from '@/lib/types';
+
+export interface DashboardConfig {
+  kpis: {
+    orderBook: boolean;
+    costIncurred: boolean;
+    collections: boolean;
+    workforce: boolean;
+    approvals: boolean;
+    escrowBalance: boolean;
+    grossMargin: boolean;
+    delayedSites: boolean;
+  };
+  sections: {
+    attentionBanner: boolean;
+    perspectiveTabs: boolean;
+    projectMatrix: boolean;
+    tradeDistribution: boolean;
+    pendingMaterials: boolean;
+    siteIssues: boolean;
+    activityFeed: boolean;
+  };
+  layoutDensity: 'comfortable' | 'compact';
+}
+
+const DEFAULT_CONFIG: DashboardConfig = {
+  kpis: {
+    orderBook: true,
+    costIncurred: true,
+    collections: true,
+    workforce: true,
+    approvals: true,
+    escrowBalance: true,
+    grossMargin: true,
+    delayedSites: true,
+  },
+  sections: {
+    attentionBanner: true,
+    perspectiveTabs: true,
+    projectMatrix: true,
+    tradeDistribution: true,
+    pendingMaterials: true,
+    siteIssues: true,
+    activityFeed: true,
+  },
+  layoutDensity: 'comfortable',
+};
 
 export default function OwnerDashboard() {
   const { state, dispatch } = useStore();
   const { user } = useAuth();
   const { showToast } = useToast();
+
+  // Dashboard Customization State
+  const [dashConfig, setDashConfig] = useState<DashboardConfig>(DEFAULT_CONFIG);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [showCustomizeModal, setShowCustomizeModal] = useState<boolean>(false);
+  const [customizerTab, setCustomizerTab] = useState<'kpis' | 'sections' | 'presets'>('kpis');
+
+  // Load customizer settings from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('interior_ops_admin_dashboard_config_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setDashConfig(prev => ({
+          ...prev,
+          ...parsed,
+          kpis: { ...prev.kpis, ...(parsed.kpis || {}) },
+          sections: { ...prev.sections, ...(parsed.sections || {}) },
+        }));
+      }
+    } catch {
+      // fallback
+    }
+  }, []);
+
+  // Save customizer config helper
+  const updateConfig = (newConfig: DashboardConfig) => {
+    setDashConfig(newConfig);
+    try {
+      localStorage.setItem('interior_ops_admin_dashboard_config_v2', JSON.stringify(newConfig));
+    } catch {
+      // storage quota fallback
+    }
+  };
+  const saveConfig = updateConfig;
+
+  const toggleKpi = (key: keyof DashboardConfig['kpis']) => {
+    const updated: DashboardConfig = {
+      ...dashConfig,
+      kpis: {
+        ...dashConfig.kpis,
+        [key]: !dashConfig.kpis[key],
+      },
+    };
+    updateConfig(updated);
+    showToast(`Updated metric visibility`, 'success');
+  };
+
+  const toggleSection = (key: keyof DashboardConfig['sections']) => {
+    const updated: DashboardConfig = {
+      ...dashConfig,
+      sections: {
+        ...dashConfig.sections,
+        [key]: !dashConfig.sections[key],
+      },
+    };
+    updateConfig(updated);
+    showToast(`Updated section visibility`, 'success');
+  };
+
+  const applyPreset = (presetName: 'full' | 'finance' | 'operations' | 'minimal') => {
+    let preset: DashboardConfig;
+    if (presetName === 'finance') {
+      preset = {
+        kpis: {
+          orderBook: true,
+          costIncurred: true,
+          collections: true,
+          workforce: false,
+          approvals: true,
+          escrowBalance: true,
+          grossMargin: true,
+          delayedSites: false,
+        },
+        sections: {
+          attentionBanner: true,
+          perspectiveTabs: true,
+          projectMatrix: true,
+          tradeDistribution: false,
+          pendingMaterials: false,
+          siteIssues: false,
+          activityFeed: true,
+        },
+        layoutDensity: 'comfortable',
+      };
+      setActiveTab('finance');
+    } else if (presetName === 'operations') {
+      preset = {
+        kpis: {
+          orderBook: false,
+          costIncurred: false,
+          collections: false,
+          workforce: true,
+          approvals: true,
+          escrowBalance: false,
+          grossMargin: false,
+          delayedSites: true,
+        },
+        sections: {
+          attentionBanner: true,
+          perspectiveTabs: true,
+          projectMatrix: true,
+          tradeDistribution: true,
+          pendingMaterials: true,
+          siteIssues: true,
+          activityFeed: true,
+        },
+        layoutDensity: 'comfortable',
+      };
+      setActiveTab('cockpit');
+    } else if (presetName === 'minimal') {
+      preset = {
+        kpis: {
+          orderBook: true,
+          costIncurred: true,
+          collections: true,
+          workforce: true,
+          approvals: false,
+          escrowBalance: false,
+          grossMargin: false,
+          delayedSites: false,
+        },
+        sections: {
+          attentionBanner: false,
+          perspectiveTabs: false,
+          projectMatrix: true,
+          tradeDistribution: false,
+          pendingMaterials: false,
+          siteIssues: false,
+          activityFeed: false,
+        },
+        layoutDensity: 'compact',
+      };
+      setActiveTab('cockpit');
+    } else {
+      preset = DEFAULT_CONFIG;
+    }
+    updateConfig(preset);
+    showToast(`Applied "${presetName.toUpperCase()}" layout preset`, 'success');
+  };
+
+  const resetToDefault = () => {
+    updateConfig(DEFAULT_CONFIG);
+    showToast('Reset dashboard to default enterprise view', 'success');
+  };
 
   // Interactive controls
   const [selectedLocation, setSelectedLocation] = useState<string>('All');
@@ -28,6 +220,7 @@ export default function OwnerDashboard() {
   const [selectedLabourSiteId, setSelectedLabourSiteId] = useState<string>('all');
 
   // Location filter options
+
   const locations = useMemo(() => {
     const locs = Array.from(new Set(state.projects.map(p => p.location)));
     return ['All', ...locs];
@@ -254,463 +447,954 @@ export default function OwnerDashboard() {
             ))}
           </div>
 
+          {/* Dashboard Customization Modal Trigger */}
+          <button
+            onClick={() => setShowCustomizeModal(true)}
+            className="btn-secondary"
+            style={{
+              padding: '8px 14px',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              fontWeight: 700
+            }}
+            title="Edit which metrics, sections, and operations cards appear on your dashboard"
+          >
+            <Sliders size={14} color="#2563eb" />
+            <span>Customize Dashboard</span>
+          </button>
+
+          {/* Quick Edit View Toggle */}
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            style={{
+              padding: '8px 14px',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: isEditMode ? '#0f172a' : '#f8fafc',
+              color: isEditMode ? '#ffffff' : '#0f172a',
+              border: '1px solid ' + (isEditMode ? '#0f172a' : 'var(--border-color)'),
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 700,
+              transition: 'all 0.15s ease'
+            }}
+            title="Toggle visual edit mode to hide/show widgets directly on page"
+          >
+            {isEditMode ? <Check size={14} color="#10b981" /> : <Eye size={14} />}
+            <span>{isEditMode ? 'Done Editing' : 'Edit Layout'}</span>
+          </button>
+
           <Link href="/owner/projects" className="btn-primary" style={{ padding: '8px 14px', fontSize: '12.5px' }}>
             <FolderKanban size={14} /> All Projects ({state.projects.length})
           </Link>
         </div>
       </div>
 
-      {/* Primary KPI Strip: Financial & Operational Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', marginBottom: '22px' }}>
-        {/* Order Book / Portfolio Value */}
-        <div className="kpi-card blue">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      {/* Edit Mode Notification Toolbar Banner */}
+      {isEditMode && (
+        <div style={{
+          padding: '12px 18px',
+          background: '#0f172a',
+          color: '#ffffff',
+          borderRadius: '10px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          border: '1px solid #1e293b'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sliders size={16} color="#38bdf8" />
+            </div>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Order Book
+              <div style={{ fontSize: '13px', fontWeight: 800 }}>Dashboard Customization Mode Active</div>
+              <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                Click the <b>✕ Hide</b> button on cards to remove them, or click <b>+ Show</b> to restore hidden items.
               </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                {formatCurrency(financeMetrics.totalOrderBook)}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '12px', color: '#059669', fontWeight: 600 }}>
-                <ArrowUpRight size={13} /> 8 Active Turnkey Sites
-              </div>
-            </div>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IndianRupee size={18} color="#2563eb" />
             </div>
           </div>
-        </div>
 
-        {/* Budget vs Incurred Cost */}
-        <div className="kpi-card green">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Actual Cost Incurred
-              </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                {formatCurrency(financeMetrics.totalSpent)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                <b>{financeMetrics.budgetUtilization.toFixed(1)}%</b> of {formatCurrency(financeMetrics.totalBudget)} Budget
-              </div>
-            </div>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Wallet size={18} color="#059669" />
-            </div>
-          </div>
-        </div>
-
-        {/* Client Collections & Receivables */}
-        <div className="kpi-card cyan">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Collected vs Invoiced
-              </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                {formatCurrency(financeMetrics.totalCollected)}
-              </div>
-              <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 600, marginTop: '4px' }}>
-                Pending: {formatCurrency(financeMetrics.pendingReceivables)}
-              </div>
-            </div>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Receipt size={18} color="#0284c7" />
-            </div>
-          </div>
-        </div>
-
-        {/* Field Workforce On-Site Today */}
-        <div
-          className="kpi-card purple"
-          style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
-          onClick={() => { setActiveTab('workers'); setLabourSubTab('sites'); }}
-          title="Click to view site-wise labour deployment"
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Active Field Force
-              </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                {totalWorkersOnSite} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>workers</span>
-              </div>
-              <div style={{ fontSize: '12px', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
-                94.5% Turnout • 6 Contractors
-              </div>
-            </div>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#faf5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={18} color="#7c3aed" />
-            </div>
-          </div>
-          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              🏢 See Labours Site-Wise →
-            </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>8 Sites</span>
-          </div>
-        </div>
-
-        {/* Action Bottlenecks / Pending Approvals */}
-        <div className="kpi-card amber">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Pending Approvals
-              </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#d97706', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                {pendingMR.length} <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Materials</span>
-              </div>
-              <div style={{ fontSize: '12px', color: openIssues.length > 0 ? '#dc2626' : '#059669', fontWeight: 600, marginTop: '4px' }}>
-                {openIssues.length} Open Issues
-              </div>
-            </div>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AlertTriangle size={18} color="#d97706" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Critical Operational Attention Banner (If delayed or pending high priority) */}
-      {(delayedProjects.length > 0 || pendingMR.length > 0 || openIssues.length > 0) && (
-        <div className="glass-card" style={{ padding: '14px 18px', marginBottom: '22px', borderLeft: '4px solid #dc2626', background: '#ffffff' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldAlert size={16} color="#dc2626" />
-              </div>
-              <div>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626' }}>
-                  Action Needed on Sites:
-                </span>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                  {delayedProjects.length > 0 && `${delayedProjects.map(p => p.name).join(', ')} flagged Delayed. `}
-                  {pendingMR.length > 0 && `${pendingMR.length} material procurement request(s) awaiting sign-off.`}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Link href="/owner/materials" className="btn-secondary" style={{ padding: '5px 12px', fontSize: '12px' }}>
-                Review Materials ({pendingMR.length})
-              </Link>
-              <Link href="/owner/issues" className="btn-secondary" style={{ padding: '5px 12px', fontSize: '12px' }}>
-                Inspect Issues ({openIssues.length})
-              </Link>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11.5px', color: '#cbd5e1', fontWeight: 600 }}>Quick Presets:</span>
+            <button
+              onClick={() => applyPreset('full')}
+              style={{ padding: '4px 10px', fontSize: '11.5px', background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: '5px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Full
+            </button>
+            <button
+              onClick={() => applyPreset('finance')}
+              style={{ padding: '4px 10px', fontSize: '11.5px', background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: '5px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Finance
+            </button>
+            <button
+              onClick={() => applyPreset('operations')}
+              style={{ padding: '4px 10px', fontSize: '11.5px', background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: '5px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Site Ops
+            </button>
+            <button
+              onClick={() => applyPreset('minimal')}
+              style={{ padding: '4px 10px', fontSize: '11.5px', background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: '5px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Minimal
+            </button>
+            <button
+              onClick={() => setShowCustomizeModal(true)}
+              style={{ padding: '5px 12px', fontSize: '11.5px', background: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 700 }}
+            >
+              ⚙️ Layout Modal
+            </button>
+            <button
+              onClick={() => setIsEditMode(false)}
+              style={{ padding: '5px 14px', fontSize: '11.5px', background: '#ffffff', color: '#0f172a', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 700 }}
+            >
+              Done ✓
+            </button>
           </div>
         </div>
       )}
 
-      {/* Interactive Perspective Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-        {[
-          { key: 'cockpit', label: '📊 Executive Cockpit', count: filteredProjects.length },
-          { key: 'finance', label: '💰 Financials & Cost Control', count: null },
-          { key: 'workers', label: '👷 Workforce & Labour Pulse', count: totalWorkersOnSite },
-          { key: 'procurement', label: '📦 Material & Procurement Pipeline', count: pendingMR.length },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            style={{
-              padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-              background: activeTab === tab.key ? '#0f172a' : '#ffffff',
-              color: activeTab === tab.key ? '#ffffff' : 'var(--text-secondary)',
-              border: activeTab === tab.key ? '1px solid #0f172a' : '1px solid var(--border-color)',
-              transition: 'all 0.15s ease',
-              display: 'flex', alignItems: 'center', gap: '8px'
-            }}
-          >
-            <span>{tab.label}</span>
-            {tab.count !== null && (
-              <span style={{
-                fontSize: '11px', padding: '1px 6px', borderRadius: '10px',
-                background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
-                color: activeTab === tab.key ? '#ffffff' : 'var(--text-muted)'
-              }}>
-                {tab.count}
-              </span>
+      {/* Primary KPI Strip: Financial & Operational Overview (Customizable) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+        {/* 1. Order Book / Portfolio Value */}
+        {dashConfig.kpis.orderBook ? (
+          <div className="kpi-card blue" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('orderBook')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
             )}
-          </button>
-        ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Total Order Book
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {formatCurrency(financeMetrics.totalOrderBook)}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '12px', color: '#059669', fontWeight: 600 }}>
+                  <ArrowUpRight size={13} /> 8 Active Turnkey Sites
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IndianRupee size={18} color="#2563eb" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('orderBook')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#2563eb" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Total Order Book</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 2. Budget vs Incurred Cost */}
+        {dashConfig.kpis.costIncurred ? (
+          <div className="kpi-card green" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('costIncurred')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Actual Cost Incurred
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {formatCurrency(financeMetrics.totalSpent)}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  <b>{financeMetrics.budgetUtilization.toFixed(1)}%</b> of {formatCurrency(financeMetrics.totalBudget)} Budget
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Wallet size={18} color="#059669" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('costIncurred')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#059669" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Incurred Cost</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 3. Client Collections & Receivables */}
+        {dashConfig.kpis.collections ? (
+          <div className="kpi-card cyan" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('collections')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Collected vs Invoiced
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {formatCurrency(financeMetrics.totalCollected)}
+                </div>
+                <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 600, marginTop: '4px' }}>
+                  Pending: {formatCurrency(financeMetrics.pendingReceivables)}
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Receipt size={18} color="#0284c7" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('collections')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#0284c7" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Collections</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 4. Field Workforce On-Site Today */}
+        {dashConfig.kpis.workforce ? (
+          <div
+            className="kpi-card purple"
+            style={{ cursor: 'pointer', transition: 'all 0.15s ease', position: 'relative' }}
+            onClick={() => { setActiveTab('workers'); setLabourSubTab('sites'); }}
+            title="Click to view site-wise labour deployment"
+          >
+            {isEditMode && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleKpi('workforce'); }}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Active Field Force
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {totalWorkersOnSite} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>workers</span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
+                  94.5% Turnout • 6 Contractors
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#faf5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Users size={18} color="#7c3aed" />
+              </div>
+            </div>
+            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                🏢 See Labours Site-Wise →
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>8 Sites</span>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('workforce')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#7c3aed" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Active Field Force</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 5. Action Bottlenecks / Pending Approvals */}
+        {dashConfig.kpis.approvals ? (
+          <div className="kpi-card amber" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('approvals')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Pending Approvals
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#d97706', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {pendingMR.length} <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Materials</span>
+                </div>
+                <div style={{ fontSize: '12px', color: openIssues.length > 0 ? '#dc2626' : '#059669', fontWeight: 600, marginTop: '4px' }}>
+                  {openIssues.length} Open Issues
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <AlertTriangle size={18} color="#d97706" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('approvals')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#d97706" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Pending Approvals</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 6. Live Gateway Escrow Balance (Optional) */}
+        {dashConfig.kpis.escrowBalance ? (
+          <div className="kpi-card blue" style={{ position: 'relative', borderLeft: '4px solid #2563eb' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('escrowBalance')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Payout Gateway Escrow
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#2563eb', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {formatCurrency(state.gatewayConfig?.balance || 2485000)}
+                </div>
+                <div style={{ fontSize: '12px', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
+                  ICICI Corporate Direct • Live
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CreditCard size={18} color="#2563eb" />
+              </div>
+            </div>
+            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #dbeafe' }}>
+              <a href="/gateway" target="_blank" rel="noopener noreferrer" style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                💳 Open Payout Gateway ↗
+              </a>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('escrowBalance')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#2563eb" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Gateway Escrow</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 7. Portfolio Gross Margin (Optional) */}
+        {dashConfig.kpis.grossMargin ? (
+          <div className="kpi-card green" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('grossMargin')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Project Gross Margin
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#059669', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {financeMetrics.grossMargin.toFixed(1)}%
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Turnkey Execution Target: 20%
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TrendingUp size={18} color="#059669" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('grossMargin')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#059669" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Gross Margin %</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
+
+        {/* 8. Delayed Projects Alert (Optional) */}
+        {dashConfig.kpis.delayedSites ? (
+          <div className="kpi-card amber" style={{ position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleKpi('delayedSites')}
+                style={{ position: 'absolute', top: '8px', right: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 700, color: '#dc2626', cursor: 'pointer' }}
+                title="Hide this KPI card"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Schedule Health
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: delayedProjects.length > 0 ? '#dc2626' : '#059669', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                  {delayedProjects.length} <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Delayed Sites</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  {attentionProjects.length} Flagged for Attention
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Timer size={18} color="#d97706" />
+              </div>
+            </div>
+          </div>
+        ) : isEditMode ? (
+          <div
+            onClick={() => toggleKpi('delayedSites')}
+            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', minHeight: '100px' }}
+          >
+            <Plus size={16} color="#d97706" />
+            <b style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px' }}>+ Show Delayed Sites Alert</b>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+          </div>
+        ) : null}
       </div>
+
+
+      {/* Critical Operational Attention Banner (If delayed or pending high priority) */}
+      {dashConfig.sections.attentionBanner ? (
+        (delayedProjects.length > 0 || pendingMR.length > 0 || openIssues.length > 0) && (
+          <div className="glass-card" style={{ padding: '14px 18px', marginBottom: '22px', borderLeft: '4px solid #dc2626', background: '#ffffff', position: 'relative' }}>
+            {isEditMode && (
+              <button
+                onClick={() => toggleSection('attentionBanner')}
+                style={{ position: 'absolute', top: '10px', right: '12px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 3 }}
+                title="Hide Attention Banner"
+              >
+                ✕ Hide
+              </button>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShieldAlert size={16} color="#dc2626" />
+                </div>
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626' }}>
+                    Action Needed on Sites:
+                  </span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                    {delayedProjects.length > 0 && `${delayedProjects.map(p => p.name).join(', ')} flagged Delayed. `}
+                    {pendingMR.length > 0 && `${pendingMR.length} material procurement request(s) awaiting sign-off.`}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Link href="/owner/materials" className="btn-secondary" style={{ padding: '5px 12px', fontSize: '12px' }}>
+                  Review Materials ({pendingMR.length})
+                </Link>
+                <Link href="/owner/issues" className="btn-secondary" style={{ padding: '5px 12px', fontSize: '12px' }}>
+                  Inspect Issues ({openIssues.length})
+                </Link>
+              </div>
+            </div>
+          </div>
+        )
+      ) : isEditMode ? (
+        <div
+          onClick={() => toggleSection('attentionBanner')}
+          style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '12px 18px', background: '#f8fafc', marginBottom: '22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+            <Plus size={15} color="#dc2626" />
+            <b style={{ color: '#0f172a' }}>+ Show Critical Operational Attention Banner</b> (Currently Hidden)
+          </div>
+          <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600 }}>Click to restore section</span>
+        </div>
+      ) : null}
+
+      {/* Interactive Perspective Tabs */}
+      {dashConfig.sections.perspectiveTabs ? (
+        <div style={{ position: 'relative', marginBottom: '18px' }}>
+          {isEditMode && (
+            <button
+              onClick={() => toggleSection('perspectiveTabs')}
+              style={{ position: 'absolute', right: 0, top: '-24px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 5 }}
+              title="Hide Perspective Tabs"
+            >
+              ✕ Hide Tabs Bar
+            </button>
+          )}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', overflowX: 'auto' }}>
+            {[
+              { key: 'cockpit', label: '📊 Executive Cockpit', count: filteredProjects.length },
+              { key: 'finance', label: '💰 Financials & Cost Control', count: null },
+              { key: 'workers', label: '👷 Workforce & Labour Pulse', count: totalWorkersOnSite },
+              { key: 'procurement', label: '📦 Material & Procurement Pipeline', count: pendingMR.length },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                style={{
+                  padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                  background: activeTab === tab.key ? '#0f172a' : '#ffffff',
+                  color: activeTab === tab.key ? '#ffffff' : 'var(--text-secondary)',
+                  border: activeTab === tab.key ? '1px solid #0f172a' : '1px solid var(--border-color)',
+                  transition: 'all 0.15s ease',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                <span>{tab.label}</span>
+                {tab.count !== null && (
+                  <span style={{
+                    fontSize: '11px', padding: '1px 6px', borderRadius: '10px',
+                    background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                    color: activeTab === tab.key ? '#ffffff' : 'var(--text-muted)'
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : isEditMode ? (
+        <div
+          onClick={() => toggleSection('perspectiveTabs')}
+          style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '10px 16px', background: '#f8fafc', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+            <Plus size={15} color="#2563eb" />
+            <b style={{ color: '#0f172a' }}>+ Show Module Tabs Bar</b> (Executive Cockpit / Finance / Workforce / Procurement)
+          </div>
+          <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600 }}>Click to restore tabs</span>
+        </div>
+      ) : null}
 
       {/* TAB CONTENT 1: EXECUTIVE COCKPIT */}
       {activeTab === 'cockpit' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: (!dashConfig.sections.pendingMaterials && !dashConfig.sections.siteIssues && !dashConfig.sections.activityFeed && !isEditMode) ? '1fr' : '2fr 1fr',
+          gap: '20px'
+        }}>
           {/* Left Column: Project Matrix & Controls */}
           <div>
-            <div className="glass-card" style={{ padding: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Active Project Portfolio Matrix</h2>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '2px 0 0' }}>Real-time execution, completion milestones, and budget health</p>
+            {/* Active Project Portfolio Matrix */}
+            {dashConfig.sections.projectMatrix ? (
+              <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', position: 'relative' }}>
+                {isEditMode && (
+                  <button
+                    onClick={() => toggleSection('projectMatrix')}
+                    style={{ position: 'absolute', top: '12px', right: '12px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 2 }}
+                    title="Hide Project Portfolio Matrix"
+                  >
+                    ✕ Hide Section
+                  </button>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Active Project Portfolio Matrix</h2>
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '2px 0 0' }}>Real-time execution, completion milestones, and budget health</p>
+                  </div>
+                  <div style={{ position: 'relative', width: '220px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ paddingLeft: '32px', fontSize: '12.5px', padding: '6px 10px 6px 32px' }}
+                      placeholder="Search site or client..."
+                      value={projectSearch}
+                      onChange={e => setProjectSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div style={{ position: 'relative', width: '220px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    className="form-input"
-                    style={{ paddingLeft: '32px', fontSize: '12.5px', padding: '6px 10px 6px 32px' }}
-                    placeholder="Search site or client..."
-                    value={projectSearch}
-                    onChange={e => setProjectSearch(e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Project / Client</th>
-                      <th>Progress</th>
-                      <th>Order Value</th>
-                      <th>Spent / Budget</th>
-                      <th>Workers</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProjects.map(project => {
-                      const budget = project.budget || project.projectValue * 0.8;
-                      const spent = project.spentCost || 0;
-                      const costRatio = budget > 0 ? (spent / budget) * 100 : 0;
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Project / Client</th>
+                        <th>Progress</th>
+                        <th>Order Value</th>
+                        <th>Spent / Budget</th>
+                        <th>Workers</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjects.map(project => {
+                        const budget = project.budget || project.projectValue * 0.8;
+                        const spent = project.spentCost || 0;
+                        const costRatio = budget > 0 ? (spent / budget) * 100 : 0;
 
-                      return (
-                        <tr key={project.id}>
-                          <td>
-                            <div>
-                              <Link href={`/owner/projects/${project.id}`} style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)', textDecoration: 'none' }}>
-                                {project.name}
+                        return (
+                          <tr key={project.id}>
+                            <td>
+                              <div>
+                                <Link href={`/owner/projects/${project.id}`} style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)', textDecoration: 'none' }}>
+                                  {project.name}
+                                </Link>
+                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                                  <span>{project.client}</span>
+                                  <span>•</span>
+                                  <span style={{ color: '#0f172a', fontWeight: 500 }}>{project.location}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td style={{ minWidth: '130px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="progress-bar" style={{ flex: 1, height: '7px' }}>
+                                  <div className={`progress-bar-fill ${getProgressColor(project.progress)}`} style={{ width: `${project.progress}%` }} />
+                                </div>
+                                <span style={{ fontSize: '12.5px', fontWeight: 700, minWidth: '34px' }}>{project.progress}%</span>
+                              </div>
+                            </td>
+
+                            <td>
+                              <span style={{ fontWeight: 700, fontSize: '13px' }}>{formatCurrency(project.projectValue)}</span>
+                            </td>
+
+                            <td>
+                              <div>
+                                <div style={{ fontSize: '12.5px', fontWeight: 600, color: costRatio > 90 ? '#dc2626' : 'var(--text-primary)' }}>
+                                  {formatCurrency(spent)}
+                                </div>
+                                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                                  {costRatio.toFixed(0)}% of {formatCurrency(budget)}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td>
+                              <button
+                                onClick={() => {
+                                  setSelectedLabourSiteId(project.siteId);
+                                  setActiveTab('workers');
+                                  setLabourSubTab('sites');
+                                }}
+                                style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid var(--border-color)',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  borderRadius: '4px',
+                                  transition: 'all 0.12s ease'
+                                }}
+                                title={`Click to inspect ${project.workerCount} workers deployed at ${project.name}`}
+                              >
+                                <Users size={12} color="#059669" />
+                                <span style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a' }}>{project.workerCount}</span>
+                                <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: 600 }}>→</span>
+                              </button>
+                            </td>
+
+                            <td>
+                              <span className={`status-badge ${getStatusBg(project.status)}`} style={{ fontSize: '11px' }}>
+                                {project.status}
+                              </span>
+                            </td>
+
+                            <td style={{ textAlign: 'right' }}>
+                              <Link href={`/owner/projects/${project.id}`} className="btn-secondary" style={{ padding: '4px 9px', fontSize: '11.5px' }}>
+                                View Site →
                               </Link>
-                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
-                                <span>{project.client}</span>
-                                <span>•</span>
-                                <span style={{ color: '#0f172a', fontWeight: 500 }}>{project.location}</span>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td style={{ minWidth: '130px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div className="progress-bar" style={{ flex: 1, height: '7px' }}>
-                                <div className={`progress-bar-fill ${getProgressColor(project.progress)}`} style={{ width: `${project.progress}%` }} />
-                              </div>
-                              <span style={{ fontSize: '12.5px', fontWeight: 700, minWidth: '34px' }}>{project.progress}%</span>
-                            </div>
-                          </td>
-
-                          <td>
-                            <span style={{ fontWeight: 700, fontSize: '13px' }}>{formatCurrency(project.projectValue)}</span>
-                          </td>
-
-                          <td>
-                            <div>
-                              <div style={{ fontSize: '12.5px', fontWeight: 600, color: costRatio > 90 ? '#dc2626' : 'var(--text-primary)' }}>
-                                {formatCurrency(spent)}
-                              </div>
-                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                                {costRatio.toFixed(0)}% of {formatCurrency(budget)}
-                              </div>
-                            </div>
-                          </td>
-
-                          <td>
-                            <button
-                              onClick={() => {
-                                setSelectedLabourSiteId(project.siteId);
-                                setActiveTab('workers');
-                                setLabourSubTab('sites');
-                              }}
-                              style={{
-                                background: '#f8fafc',
-                                border: '1px solid var(--border-color)',
-                                cursor: 'pointer',
-                                padding: '3px 8px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                borderRadius: '4px',
-                                transition: 'all 0.12s ease'
-                              }}
-                              title={`Click to inspect ${project.workerCount} workers deployed at ${project.name}`}
-                            >
-                              <Users size={12} color="#059669" />
-                              <span style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a' }}>{project.workerCount}</span>
-                              <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: 600 }}>→</span>
-                            </button>
-                          </td>
-
-                          <td>
-                            <span className={`status-badge ${getStatusBg(project.status)}`} style={{ fontSize: '11px' }}>
-                              {project.status}
-                            </span>
-                          </td>
-
-                          <td style={{ textAlign: 'right' }}>
-                            <Link href={`/owner/projects/${project.id}`} className="btn-secondary" style={{ padding: '4px 9px', fontSize: '11.5px' }}>
-                              View Site →
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            ) : isEditMode ? (
+              <div
+                onClick={() => toggleSection('projectMatrix')}
+                style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '24px', background: '#f8fafc', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <Plus size={20} color="#2563eb" />
+                <b style={{ fontSize: '13px', color: '#0f172a', marginTop: '6px' }}>+ Show Active Project Portfolio Matrix</b>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Section is currently hidden. Click to re-enable on dashboard.</span>
+              </div>
+            ) : null}
 
             {/* Trade & Workforce Distribution Strip */}
-            <div className="glass-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Field Workforce Deployment by Trade</h3>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total: <b>{totalWorkersOnSite} Workers Active</b></span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                {tradeDistribution.map(t => {
-                  const Icon = t.icon;
-                  return (
-                    <div key={t.trade} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Icon size={14} color={t.color} />
+            {dashConfig.sections.tradeDistribution ? (
+              <div className="glass-card" style={{ padding: '20px', position: 'relative' }}>
+                {isEditMode && (
+                  <button
+                    onClick={() => toggleSection('tradeDistribution')}
+                    style={{ position: 'absolute', top: '12px', right: '12px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 2 }}
+                    title="Hide Trade Distribution"
+                  >
+                    ✕ Hide Section
+                  </button>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Field Workforce Deployment by Trade</h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total: <b>{totalWorkersOnSite} Workers Active</b></span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                  {tradeDistribution.map(t => {
+                    const Icon = t.icon;
+                    return (
+                      <div key={t.trade} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon size={14} color={t.color} />
+                          </div>
+                          <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>{t.count}</span>
                         </div>
-                        <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>{t.count}</span>
+                        <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.trade}</div>
                       </div>
-                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.trade}</div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : isEditMode ? (
+              <div
+                onClick={() => toggleSection('tradeDistribution')}
+                style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <Plus size={18} color="#059669" />
+                <b style={{ fontSize: '13px', color: '#0f172a', marginTop: '4px' }}>+ Show Field Workforce Deployment by Trade</b>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Section is currently hidden. Click to re-enable.</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Right Column: Interactive Action Hub & Live Feeds */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* Quick Action: Pending Materials Needing Owner Approval */}
-            <div className="glass-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Package size={17} color="#2563eb" />
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Materials Needing Sign-Off</h3>
-                </div>
-                <span style={{ fontSize: '11px', fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '10px' }}>
-                  {pendingMR.length} Pending
-                </span>
-              </div>
+          {(dashConfig.sections.pendingMaterials || dashConfig.sections.siteIssues || dashConfig.sections.activityFeed || isEditMode) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Quick Action: Pending Materials Needing Owner Approval */}
+              {dashConfig.sections.pendingMaterials ? (
+                <div className="glass-card" style={{ padding: '20px', position: 'relative' }}>
+                  {isEditMode && (
+                    <button
+                      onClick={() => toggleSection('pendingMaterials')}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 2 }}
+                      title="Hide Pending Materials"
+                    >
+                      ✕ Hide
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Package size={17} color="#2563eb" />
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Materials Needing Sign-Off</h3>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '10px' }}>
+                      {pendingMR.length} Pending
+                    </span>
+                  </div>
 
-              {pendingMR.length === 0 ? (
-                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
-                  All material requests have been approved!
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {pendingMR.slice(0, 3).map(mr => (
-                    <div key={mr.id} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{mr.materialName}</div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{mr.projectName} • {mr.quantity} {mr.unit}</div>
+                  {pendingMR.length === 0 ? (
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
+                      All material requests have been approved!
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {pendingMR.slice(0, 3).map(mr => (
+                        <div key={mr.id} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{mr.materialName}</div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{mr.projectName} • {mr.quantity} {mr.unit}</div>
+                            </div>
+                            <span className={`status-badge ${getStatusBg(mr.priority)}`} style={{ fontSize: '10px' }}>{mr.priority}</span>
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '8px', fontStyle: 'italic' }}>
+                            "{mr.reason}"
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleDirectApproveMR(mr.id, mr.materialName)}
+                              className="btn-success"
+                              style={{ padding: '4px 10px', fontSize: '11.5px', flex: 1, justifyContent: 'center' }}
+                            >
+                              <Check size={12} /> Approve
+                            </button>
+                            <Link href="/owner/materials" className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11.5px' }}>
+                              Details
+                            </Link>
+                          </div>
                         </div>
-                        <span className={`status-badge ${getStatusBg(mr.priority)}`} style={{ fontSize: '10px' }}>{mr.priority}</span>
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '8px', fontStyle: 'italic' }}>
-                        "{mr.reason}"
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={() => handleDirectApproveMR(mr.id, mr.materialName)}
-                          className="btn-success"
-                          style={{ padding: '4px 10px', fontSize: '11.5px', flex: 1, justifyContent: 'center' }}
-                        >
-                          <Check size={12} /> Approve
-                        </button>
-                        <Link href="/owner/materials" className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11.5px' }}>
-                          Details
-                        </Link>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Quick Action: Critical Site Issues */}
-            <div className="glass-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={17} color="#dc2626" />
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Site Issues & Bottlenecks</h3>
+              ) : isEditMode ? (
+                <div
+                  onClick={() => toggleSection('pendingMaterials')}
+                  style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center' }}
+                >
+                  <Plus size={18} color="#2563eb" />
+                  <b style={{ fontSize: '12.5px', color: '#0f172a', marginTop: '4px' }}>+ Show Materials Needing Sign-Off</b>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Currently Hidden</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: 700, background: '#fef2f2', color: '#b91c1c', padding: '2px 8px', borderRadius: '10px' }}>
-                  {openIssues.length} Open
-                </span>
-              </div>
+              ) : null}
 
-              {openIssues.length === 0 ? (
-                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
-                  Zero open issues across all active sites!
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {openIssues.slice(0, 3).map(iss => (
-                    <div key={iss.id} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{iss.title}</div>
-                        <span className={`status-badge ${getStatusBg(iss.priority)}`} style={{ fontSize: '10px' }}>{iss.priority}</span>
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                        {iss.projectName} • Category: <b>{iss.category}</b>
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={() => handleDirectResolveIssue(iss.id, iss.title)}
-                          className="btn-secondary"
-                          style={{ padding: '4px 10px', fontSize: '11.5px', flex: 1, justifyContent: 'center' }}
-                        >
-                          <CheckCircle2 size={12} color="#059669" /> Mark Resolved
-                        </button>
-                        <Link href="/owner/issues" className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11.5px' }}>
-                          View
-                        </Link>
-                      </div>
+              {/* Quick Action: Critical Site Issues */}
+              {dashConfig.sections.siteIssues ? (
+                <div className="glass-card" style={{ padding: '20px', position: 'relative' }}>
+                  {isEditMode && (
+                    <button
+                      onClick={() => toggleSection('siteIssues')}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 2 }}
+                      title="Hide Site Issues"
+                    >
+                      ✕ Hide
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertTriangle size={17} color="#dc2626" />
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Site Issues & Bottlenecks</h3>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, background: '#fef2f2', color: '#b91c1c', padding: '2px 8px', borderRadius: '10px' }}>
+                      {openIssues.length} Open
+                    </span>
+                  </div>
 
-            {/* Live Operational Audit Feed */}
-            <div className="glass-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Clock size={16} color="#0f172a" /> Live Activity Feed
-                </h3>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {recentActivity.slice(0, 5).map((act, i) => (
-                  <Link key={i} href={act.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12.5px', padding: '6px 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none' }}>
-                      <div style={{
-                        width: '7px', height: '7px', borderRadius: '50%', marginTop: '5px', flexShrink: 0,
-                        background: act.type === 'issue' ? '#dc2626' : act.type === 'material' ? '#d97706' : '#059669'
-                      }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{act.title}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{act.project} • {timeAgo(act.time)}</div>
-                      </div>
+                  {openIssues.length === 0 ? (
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
+                      Zero open issues across all active sites!
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {openIssues.slice(0, 3).map(iss => (
+                        <div key={iss.id} style={{ padding: '12px', background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{iss.title}</div>
+                            <span className={`status-badge ${getStatusBg(iss.priority)}`} style={{ fontSize: '10px' }}>{iss.priority}</span>
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                            {iss.projectName} • Category: <b>{iss.category}</b>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleDirectResolveIssue(iss.id, iss.title)}
+                              className="btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '11.5px', flex: 1, justifyContent: 'center' }}
+                            >
+                              <CheckCircle2 size={12} color="#059669" /> Mark Resolved
+                            </button>
+                            <Link href="/owner/issues" className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11.5px' }}>
+                              View
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </Link>
-                ))}
-              </div>
+                  )}
+                </div>
+              ) : isEditMode ? (
+                <div
+                  onClick={() => toggleSection('siteIssues')}
+                  style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center' }}
+                >
+                  <Plus size={18} color="#dc2626" />
+                  <b style={{ fontSize: '12.5px', color: '#0f172a', marginTop: '4px' }}>+ Show Site Issues & Bottlenecks</b>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+                </div>
+              ) : null}
+
+              {/* Live Operational Audit Feed */}
+              {dashConfig.sections.activityFeed ? (
+                <div className="glass-card" style={{ padding: '20px', position: 'relative' }}>
+                  {isEditMode && (
+                    <button
+                      onClick={() => toggleSection('activityFeed')}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: '#dc2626', cursor: 'pointer', zIndex: 2 }}
+                      title="Hide Activity Feed"
+                    >
+                      ✕ Hide
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Clock size={16} color="#0f172a" /> Live Activity Feed
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {recentActivity.slice(0, 5).map((act, i) => (
+                      <Link key={i} href={act.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12.5px', padding: '6px 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none' }}>
+                          <div style={{
+                            width: '7px', height: '7px', borderRadius: '50%', marginTop: '5px', flexShrink: 0,
+                            background: act.type === 'issue' ? '#dc2626' : act.type === 'material' ? '#d97706' : '#059669'
+                          }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{act.title}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{act.project} • {timeAgo(act.time)}</div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : isEditMode ? (
+                <div
+                  onClick={() => toggleSection('activityFeed')}
+                  style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center' }}
+                >
+                  <Plus size={18} color="#0f172a" />
+                  <b style={{ fontSize: '12.5px', color: '#0f172a', marginTop: '4px' }}>+ Show Live Activity Feed</b>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Currently Hidden</span>
+                </div>
+              ) : null}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1302,6 +1986,501 @@ export default function OwnerDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DASHBOARD CUSTOMIZATION MODAL */}
+      {/* ========================================================================= */}
+      {showCustomizeModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCustomizeModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '14px',
+              width: '100%',
+              maxWidth: '820px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                background: '#ffffff',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Sliders size={18} color="#2563eb" />
+                  </div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#0f172a' }}>
+                    Customize Admin Dashboard
+                  </h2>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                  Personalize which metrics, tables, and operational action hubs appear on your executive page.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowCustomizeModal(false)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                padding: '12px 24px',
+                borderBottom: '1px solid #f1f5f9',
+                background: '#f8fafc',
+              }}
+            >
+              {[
+                { id: 'kpis', label: '📊 Primary KPI Cards', badge: `${Object.values(dashConfig.kpis).filter(Boolean).length}/8 visible` },
+                { id: 'sections', label: '🏢 Major Sections & Tables', badge: `${Object.values(dashConfig.sections).filter(Boolean).length}/7 visible` },
+                { id: 'presets', label: '🎯 Layout Presets & Density', badge: 'Quick Setup' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setCustomizerTab(tab.id as any)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: customizerTab === tab.id ? '#0f172a' : '#ffffff',
+                    color: customizerTab === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                    border: customizerTab === tab.id ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                  }}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      padding: '1px 6px',
+                      borderRadius: '6px',
+                      background: customizerTab === tab.id ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
+                      color: customizerTab === tab.id ? '#ffffff' : '#475569',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {tab.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Body / Tab Panes */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, maxHeight: 'calc(90vh - 220px)' }}>
+              {/* TAB 1: KPIS */}
+              {customizerTab === 'kpis' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Select which top-level KPI metric cards to render in the summary strip:
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          const updated = { ...dashConfig, kpis: Object.keys(dashConfig.kpis).reduce((acc, k) => ({ ...acc, [k]: true }), {} as any) };
+                          saveConfig(updated);
+                        }}
+                        style={{ fontSize: '11.5px', fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = { ...dashConfig, kpis: Object.keys(dashConfig.kpis).reduce((acc, k) => ({ ...acc, [k]: false }), {} as any) };
+                          saveConfig(updated);
+                        }}
+                        style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+                    {[
+                      { key: 'orderBook', title: 'Active Order Book Value', desc: 'Total portfolio contract value & billing milestone tracking', icon: FolderKanban, color: '#2563eb', bg: '#eff6ff' },
+                      { key: 'costIncurred', title: 'Total Project Cost Incurred', desc: 'Total money spent across materials, labour & vendors', icon: IndianRupee, color: '#dc2626', bg: '#fef2f2' },
+                      { key: 'collections', title: 'Collections Received', desc: 'Realized client cash receipts and collection efficiency', icon: Wallet, color: '#059669', bg: '#ecfdf5' },
+                      { key: 'workforce', title: 'Active Field Workforce', desc: 'Total live labourers deployed across all active job sites', icon: Users, color: '#7c3aed', bg: '#f5f3ff' },
+                      { key: 'approvals', title: 'Pending Materials & Approvals', desc: 'Material requests & site issues awaiting executive sign-off', icon: AlertCircle, color: '#d97706', bg: '#fffbeb' },
+                      { key: 'escrowBalance', title: 'Verified Escrow & Capital', desc: 'Client advance funds held securely in escrow bank rails', icon: Receipt, color: '#0284c7', bg: '#f0f9ff' },
+                      { key: 'grossMargin', title: 'Turnkey Gross Margin %', desc: 'Portfolio aggregate profit margin vs 20% benchmark target', icon: TrendingUp, color: '#059669', bg: '#ecfdf5' },
+                      { key: 'delayedSites', title: 'Schedule Health & Delayed Alert', desc: 'Count of active sites behind target timeline milestones', icon: Timer, color: '#d97706', bg: '#fffbeb' },
+                    ].map((item) => {
+                      const isEnabled = dashConfig.kpis[item.key as keyof typeof dashConfig.kpis];
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.key}
+                          onClick={() => toggleKpi(item.key as any)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '14px 16px',
+                            borderRadius: '10px',
+                            border: isEnabled ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                            background: isEnabled ? '#f8fafc' : '#ffffff',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Icon size={18} color={item.color} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>{item.title}</div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.desc}</div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              width: '42px',
+                              height: '24px',
+                              borderRadius: '12px',
+                              background: isEnabled ? '#2563eb' : '#cbd5e1',
+                              position: 'relative',
+                              transition: 'background 0.2s ease',
+                              flexShrink: 0,
+                              marginLeft: '12px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                background: '#ffffff',
+                                position: 'absolute',
+                                top: '3px',
+                                left: isEnabled ? '21px' : '3px',
+                                transition: 'left 0.2s ease',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: SECTIONS */}
+              {customizerTab === 'sections' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Control which operational blocks and widgets display on the page:
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          const updated = { ...dashConfig, sections: Object.keys(dashConfig.sections).reduce((acc, k) => ({ ...acc, [k]: true }), {} as any) };
+                          saveConfig(updated);
+                        }}
+                        style={{ fontSize: '11.5px', fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = { ...dashConfig, sections: Object.keys(dashConfig.sections).reduce((acc, k) => ({ ...acc, [k]: false }), {} as any) };
+                          saveConfig(updated);
+                        }}
+                        style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { key: 'attentionBanner', title: 'Critical Attention Banner', desc: 'Displays urgent alerts for delayed sites, open bottlenecks, and pending requests', icon: ShieldAlert, color: '#dc2626', bg: '#fef2f2' },
+                      { key: 'perspectiveTabs', title: 'Module Perspective Tabs', desc: 'Top tabs switcher (Executive Cockpit, Finance, Workforce Pulse, Procurement)', icon: LayoutGrid, color: '#0f172a', bg: '#f1f5f9' },
+                      { key: 'projectMatrix', title: 'Active Project Portfolio Matrix', desc: 'Complete interactive table of all active sites, progress bars, budget burn & statuses', icon: FolderKanban, color: '#2563eb', bg: '#eff6ff' },
+                      { key: 'tradeDistribution', title: 'Workforce Deployment by Trade', desc: 'Breakdown of Carpenters, Electricians, Plumbers, POP & Helpers across active sites', icon: HardHat, color: '#059669', bg: '#ecfdf5' },
+                      { key: 'pendingMaterials', title: 'Materials Needing Sign-Off Widget', desc: 'Side card with 1-click owner approvals for urgent site material requests', icon: Package, color: '#2563eb', bg: '#eff6ff' },
+                      { key: 'siteIssues', title: 'Site Bottlenecks & Issues Widget', desc: 'Side card for instant resolution of reported site blockers', icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2' },
+                      { key: 'activityFeed', title: 'Live Operational Activity Feed', desc: 'Real-time timeline audit stream of logs, inspections, and site updates', icon: Clock, color: '#64748b', bg: '#f8fafc' },
+                    ].map((item) => {
+                      const isEnabled = dashConfig.sections[item.key as keyof typeof dashConfig.sections];
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.key}
+                          onClick={() => toggleSection(item.key as any)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '14px 16px',
+                            borderRadius: '10px',
+                            border: isEnabled ? '1.5px solid #0f172a' : '1px solid #e2e8f0',
+                            background: isEnabled ? '#f8fafc' : '#ffffff',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Icon size={18} color={item.color} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{item.title}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.desc}</div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              width: '42px',
+                              height: '24px',
+                              borderRadius: '12px',
+                              background: isEnabled ? '#0f172a' : '#cbd5e1',
+                              position: 'relative',
+                              transition: 'background 0.2s ease',
+                              flexShrink: 0,
+                              marginLeft: '12px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                background: '#ffffff',
+                                position: 'absolute',
+                                top: '3px',
+                                left: isEnabled ? '21px' : '3px',
+                                transition: 'left 0.2s ease',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: PRESETS & DENSITY */}
+              {customizerTab === 'presets' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
+                      Curated Role & Focus Presets
+                    </h3>
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
+                      Choose a pre-configured template tailored to your current executive focus:
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {[
+                      {
+                        id: 'full',
+                        title: '🌟 360° Complete Cockpit',
+                        tag: 'Recommended',
+                        desc: 'Shows all 8 KPIs, active project portfolio matrix, side action hubs, trade charts, and activity feeds.',
+                        bg: '#f8fafc',
+                      },
+                      {
+                        id: 'finance',
+                        title: '💰 Finance & Cash Control',
+                        tag: 'CFO / Owner Mode',
+                        desc: 'Prioritizes Order book, Cost incurred, Collections received, Gross margin %, and Escrow bank balance.',
+                        bg: '#f8fafc',
+                      },
+                      {
+                        id: 'operations',
+                        title: '👷 Site Operations & Labour',
+                        tag: 'COO / Field Mode',
+                        desc: 'Prioritizes Live workers, Delayed site flags, Pending material approvals, and trade breakdowns.',
+                        bg: '#f8fafc',
+                      },
+                      {
+                        id: 'minimal',
+                        title: '⚡ Minimalist / Focus View',
+                        tag: 'Clean View',
+                        desc: 'Only the 4 essential financial & labour KPIs and active project portfolio table for distraction-free monitoring.',
+                        bg: '#f8fafc',
+                      },
+                    ].map((preset) => (
+                      <div
+                        key={preset.id}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          background: preset.bg,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{preset.title}</span>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#eff6ff', color: '#1d4ed8' }}>
+                              {preset.tag}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                            {preset.desc}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => applyPreset(preset.id as any)}
+                          className="btn-secondary"
+                          style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '7px 0', fontWeight: 700 }}
+                        >
+                          Apply Preset
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Layout Density */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 6px', color: '#0f172a' }}>
+                      Visual Density
+                    </h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {[
+                        { id: 'comfortable', label: 'Comfortable (Standard padding & airy cards)' },
+                        { id: 'compact', label: 'Compact (High information density)' },
+                      ].map((den) => (
+                        <button
+                          key={den.id}
+                          onClick={() => {
+                            const updated = { ...dashConfig, layoutDensity: den.id as any };
+                            saveConfig(updated);
+                          }}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            background: dashConfig.layoutDensity === den.id ? '#0f172a' : '#ffffff',
+                            color: dashConfig.layoutDensity === den.id ? '#ffffff' : 'var(--text-secondary)',
+                            border: dashConfig.layoutDensity === den.id ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                          }}
+                        >
+                          {den.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '16px 24px',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <button
+                onClick={resetToDefault}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <RotateCcw size={14} />
+                <span>Reset to Factory Defaults</span>
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  ✓ Autosaved to local profile
+                </span>
+                <button
+                  onClick={() => {
+                    setShowCustomizeModal(false);
+                    showToast('Dashboard layout saved successfully', 'success');
+                  }}
+                  className="btn-primary"
+                  style={{ padding: '8px 20px', fontSize: '13px' }}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>
